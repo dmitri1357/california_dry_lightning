@@ -1,2 +1,506 @@
 #!/usr/bin/env python3
 
+import numpy as np
+import matplotlib.pyplot as plt   
+from mpl_toolkits.basemap import Basemap
+from tqdm import tqdm
+
+# set figure font to Arial
+import matplotlib as mpl
+mpl.rc('font',family='Arial')
+
+'''
+all datasets for this code can be downloaded from Zenodo.org (see README for details).
+'''
+
+# plot A
+
+# import dataset of dry lightning cropped to study area
+dry_cg_cropped = np.load('dry_cg_cropped2.npy')
+
+# subset to May-October
+idx = np.arange(0,12410,365)
+idx1 = np.arange(0,6256,184)
+dry_cg_mjjaso = np.empty([6256,10176])
+for k in range(34):
+    step = idx[k]
+    step1 = idx1[k]
+    dry_cg_mjjaso[step1:step1+184,:] = dry_cg_cropped[step+120:step+120+184,:]
+    
+sums = np.sum(dry_cg_mjjaso,axis=0)
+
+lats = np.arange(32.5,42.01,0.1)
+lons = np.arange(-124.5,-113.99,0.1)
+lats = np.append(lats,42.1)
+lons = np.append(lons,-113.9)
+
+# normalize data by cosine of latitude to remove geographic distortion
+areas = np.empty([96,106])
+for i in range(96):
+    lat1 = lats[i]
+    lat2 = lats[i+1]
+    lat_diff = lat2 - lat1
+    lat_dist = np.abs(lat_diff * 111) # km for one degree of latitude in the mid-latitudes 
+    for j in range(106):
+        lon1 = lons[j]
+        lon2 = lons[j+1]
+        lon_diff = lon2 - lon1
+        cosrad = np.cos(np.deg2rad(lat1))
+        deg1 = cosrad * 111.32 # km for one degree of longitude at equator
+        lon_dist = deg1 * lon_diff
+        areas[i,j] = lat_dist * lon_dist
+
+area_vec = np.reshape(areas,10176)
+dry_cg_km = sums/area_vec
+
+dry_cg_km = dry_cg_km/34
+var = np.reshape(dry_cg_km,(96,106))
+var = np.log10(var)
+
+lat = np.arange(32.5,42.01,0.1)
+lon = np.arange(-124.5,-113.99,0.1)
+lon, lat = np.meshgrid(lon, lat)
+
+fig = plt.figure(figsize=(6,8))
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('rainbow'))
+plt.clim(-3,-0.22)
+# cb = plt.colorbar(orientation='vertical')
+# cb.ax.tick_params(labelsize=20)
+# cb.set_ticks([-3,-2,-1,-0.22])
+# cb.set_ticklabels(['0.001','0.01','0.1','0.6'])
+plt.title('A. Mean dry lightning density', size=22)      
+#parallels = np.arange(32,43,2)
+#m.drawparallels(parallels,labels=[1,0,0,0],fontsize=16)
+#meridians = np.arange(-126,-117,2)
+#m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=16)
+x, y = m(-122.39, 40.59)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Redding', c='k', fontsize=14)
+x, y = m(-121.49, 38.58)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Sacramento', c='k', fontsize=14)          
+x, y = m(-119.02, 35.37)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Bakersfield', c='k', fontsize=14)       
+x, y = m(-119.79, 36.74)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Fresno', c='k', fontsize=14)
+x, y = m(-122.42, 37.77)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  San Francisco', c='k', fontsize=14)              
+
+# plot C
+
+# import dataset of total lightning, for computing dry lightning fractions
+cg_vec_cropped = np.load('cg_vec_cropped2.npy')
+
+idx = np.arange(0,12410,365)
+idx1 = np.arange(0,6256,184)
+cg_vec_mjjaso = np.empty([6256,10176])
+for k in range(34):
+    step = idx[k]
+    step1 = idx1[k]
+    cg_vec_mjjaso[step1:step1+184,:] = cg_vec_cropped[step+120:step+120+184,:]
+    
+sums = np.sum(cg_vec_mjjaso,axis=0)
+
+lats = np.arange(32.5,42.01,0.1)
+lons = np.arange(-124.5,-113.99,0.1)
+lats = np.append(lats,42.1)
+lons = np.append(lons,-113.9)
+
+areas = np.empty([96,106])
+for i in range(96):
+    lat1 = lats[i]
+    lat2 = lats[i+1]
+    lat_diff = lat2 - lat1
+    lat_dist = np.abs(lat_diff * 111) # km for one degree of latitude in the mid-latitudes 
+    for j in range(106):
+        lon1 = lons[j]
+        lon2 = lons[j+1]
+        lon_diff = lon2 - lon1
+        cosrad = np.cos(np.deg2rad(lat1))
+        deg1 = cosrad * 111.32 # km for one degree of longitude at equator
+        lon_dist = deg1 * lon_diff
+        areas[i,j] = lat_dist * lon_dist
+
+area_vec = np.reshape(areas,10176)
+cg_km = sums/area_vec
+cg_km = cg_km/34
+
+# compute fractions
+dry_fraction = dry_cg_km/cg_km
+
+var = np.reshape(dry_fraction,(96,106))
+lat = np.arange(32.5,42.01,0.1)
+lon = np.arange(-124.5,-113.99,0.1)
+lon, lat = np.meshgrid(lon, lat)
+
+fig = plt.figure(figsize=(6,8))
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',10))
+#cb = plt.colorbar(ticks=np.arange(0,101,10))
+# cb = plt.colorbar(ticks=np.arange(0,1.01,0.2), orientation='vertical')
+# cb.ax.tick_params(labelsize=20)
+plt.clim(0,1)
+#cb.set_ticks(np.arange(0.5,7.6,1))
+#cb.set_ticklabels(np.arange(0,9,1))
+plt.title('C. Dry lightning fraction', size=22)      
+#parallels = np.arange(32,43,2)
+#m.drawparallels(parallels,labels=[1,0,0,0],fontsize=16)
+#meridians = np.arange(-126,-117,2)
+#m.drawmeridians(meridians,labels=[0,0,0,1],fontsize=16)
+x, y = m(-122.39, 40.59)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Redding', c='k', fontsize=14)
+x, y = m(-121.49, 38.58)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Sacramento', c='k', fontsize=14)          
+x, y = m(-119.02, 35.37)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Bakersfield', c='k', fontsize=14)       
+x, y = m(-119.79, 36.74)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  Fresno', c='k', fontsize=14)
+x, y = m(-122.42, 37.77)
+plt.plot(x, y, 'ok', markersize=7)
+plt.text(x, y, '  San Francisco', c='k', fontsize=14)             
+
+# plot B
+
+# import dataset of surface elevation at 0.1 degree resolution
+surf_geo_trimmed = np.load('surf_geo_trimmed.npy')
+surf_vec = np.reshape(surf_geo_trimmed,10176)
+
+dry_normed = dry_cg_mjjaso/(area_vec/100)
+
+# split dry lightning data into 3 elevation zones
+cg1 = dry_normed[:,surf_vec<1000]
+cg2 = dry_normed[:,(surf_vec>=1000)&(surf_vec<=2000)]
+cg3 = dry_normed[:,surf_vec>2000]
+
+splits = np.split(dry_normed,34,axis=0)
+dry_daily_counts = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    dry_daily_counts[k,:] = cg_tots
+all_daily2 = np.nansum(dry_daily_counts,axis=0)
+
+splits = np.split(cg1,34,axis=0)
+dry_daily_counts3 = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    dry_daily_counts3[k,:] = cg_tots
+all_daily3 = np.nansum(dry_daily_counts3,axis=0)
+
+splits = np.split(cg2,34,axis=0)
+dry_daily_counts4 = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    dry_daily_counts4[k,:] = cg_tots
+all_daily4 = np.nansum(dry_daily_counts4,axis=0)
+
+splits = np.split(cg3,34,axis=0)
+dry_daily_counts5 = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    dry_daily_counts5[k,:] = cg_tots
+all_daily5 = np.nansum(dry_daily_counts5,axis=0)
+
+may1 = all_daily3[:31]
+jun1 = all_daily3[31:61]
+jul1 = all_daily3[61:92]
+aug1 = all_daily3[92:123]
+sep1 = all_daily3[123:153]
+oct1 = all_daily3[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+list3 = [sum1,sum2,sum3,sum4,sum5,sum6]
+
+may1 = all_daily4[:31]
+jun1 = all_daily4[31:61]
+jul1 = all_daily4[61:92]
+aug1 = all_daily4[92:123]
+sep1 = all_daily4[123:153]
+oct1 = all_daily4[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+list4 = [sum1,sum2,sum3,sum4,sum5,sum6]
+
+may1 = all_daily5[:31]
+jun1 = all_daily5[31:61]
+jul1 = all_daily5[61:92]
+aug1 = all_daily5[92:123]
+sep1 = all_daily5[123:153]
+oct1 = all_daily5[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+list5 = [sum1,sum2,sum3,sum4,sum5,sum6]
+
+list3 = np.array(list3)
+list4 = np.array(list4)
+list5 = np.array(list5)
+
+fig = plt.figure(figsize=(6,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+labels = ['MAY','JUN','JUL','AUG','SEP','OCT']
+plt.xticks(np.arange(0,6,1), ('MAY','JUN','JUL','AUG','SEP','OCT'), fontsize = 16)
+plt.bar(labels, list3, color='#d9ad7c')
+plt.bar(labels, list4, bottom=list3, color='#a2836e')
+plt.bar(labels, list5, bottom=list3+list4, color='#674d3c')
+plt.ylim([0,120000])
+#plt.ylabel('Number of lightning strikes')
+plt.yticks(np.arange(0,161000,20000),
+           ('0','20k','40k','60k','80k','100k','120k','140k','160k'), fontsize = 16)
+plt.title('B. Dry lightning flashes', size=23)
+#plt.legend(['163 000 km2','64 000 km2','22 000 km2'],fontsize=14)
+#plt.title('Number of lightning strikes', size=23)
+#plt.legend(['<1000 m','1000 to 2000 m','>2000 m'],fontsize=14)
+
+# plot D
+
+all_daily1 = np.nansum(cg_daily_counts3,axis=0) # numbers 3,4,5 stand for elevation ranges
+all_daily2 = np.nansum(dry_daily_counts3,axis=0) # numbers 3,4,5 stand for elevation ranges
+
+may1 = all_daily1[:31]
+jun1 = all_daily1[31:61]
+jul1 = all_daily1[61:92]
+aug1 = all_daily1[92:123]
+sep1 = all_daily1[123:153]
+oct1 = all_daily1[153:]
+
+may2 = all_daily2[:31]
+jun2 = all_daily2[31:61]
+jul2 = all_daily2[61:92]
+aug2 = all_daily2[92:123]
+sep2 = all_daily2[123:153]
+oct2 = all_daily2[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+
+sum7 = np.sum(may2)
+sum8 = np.sum(jun2)
+sum9 = np.sum(jul2)
+sum10 = np.sum(aug2)
+sum11 = np.sum(sep2)
+sum12 = np.sum(oct2)
+
+perc1 = (sum7/sum1) * 100
+perc2 = (sum8/sum2) * 100
+perc3 = (sum9/sum3) * 100
+perc4 = (sum10/sum4) * 100
+perc5 = (sum11/sum5) * 100
+perc6 = (sum12/sum6) * 100
+
+list3 = [perc1,perc2,perc3,perc4,perc5,perc6] # numbers 3,4,5 after "list" stand for elevation ranges
+fullsum1 = np.sum(all_daily1)
+fullsum2 = np.sum(all_daily2)
+total_perc3 = (fullsum2/fullsum1) # numbers 3,4,5 after "total_perc" stand for elevation ranges
+list3 = np.array(list3)/100  # numbers 3,4,5 after "list" stand for elevation ranges
+
+# repeat the above code for next elevation range
+
+all_daily1 = np.nansum(cg_daily_counts4,axis=0) # numbers 3,4,5 stand for elevation ranges
+all_daily2 = np.nansum(dry_daily_counts4,axis=0) # numbers 3,4,5 stand for elevation ranges
+
+may1 = all_daily1[:31]
+jun1 = all_daily1[31:61]
+jul1 = all_daily1[61:92]
+aug1 = all_daily1[92:123]
+sep1 = all_daily1[123:153]
+oct1 = all_daily1[153:]
+
+may2 = all_daily2[:31]
+jun2 = all_daily2[31:61]
+jul2 = all_daily2[61:92]
+aug2 = all_daily2[92:123]
+sep2 = all_daily2[123:153]
+oct2 = all_daily2[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+
+sum7 = np.sum(may2)
+sum8 = np.sum(jun2)
+sum9 = np.sum(jul2)
+sum10 = np.sum(aug2)
+sum11 = np.sum(sep2)
+sum12 = np.sum(oct2)
+
+perc1 = (sum7/sum1) * 100
+perc2 = (sum8/sum2) * 100
+perc3 = (sum9/sum3) * 100
+perc4 = (sum10/sum4) * 100
+perc5 = (sum11/sum5) * 100
+perc6 = (sum12/sum6) * 100
+
+list4 = [perc1,perc2,perc3,perc4,perc5,perc6] # numbers 3,4,5 after "list" stand for elevation ranges
+fullsum1 = np.sum(all_daily1)
+fullsum2 = np.sum(all_daily2)
+total_perc4 = (fullsum2/fullsum1) # numbers 3,4,5 after "total_perc" stand for elevation ranges
+list4 = np.array(list4)/100  # numbers 3,4,5 after "list" stand for elevation ranges
+
+# repeat the above code for next elevation range
+
+all_daily1 = np.nansum(cg_daily_counts5,axis=0) # numbers 3,4,5 stand for elevation ranges
+all_daily2 = np.nansum(dry_daily_counts5,axis=0) # numbers 3,4,5 stand for elevation ranges
+
+may1 = all_daily1[:31]
+jun1 = all_daily1[31:61]
+jul1 = all_daily1[61:92]
+aug1 = all_daily1[92:123]
+sep1 = all_daily1[123:153]
+oct1 = all_daily1[153:]
+
+may2 = all_daily2[:31]
+jun2 = all_daily2[31:61]
+jul2 = all_daily2[61:92]
+aug2 = all_daily2[92:123]
+sep2 = all_daily2[123:153]
+oct2 = all_daily2[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+
+sum7 = np.sum(may2)
+sum8 = np.sum(jun2)
+sum9 = np.sum(jul2)
+sum10 = np.sum(aug2)
+sum11 = np.sum(sep2)
+sum12 = np.sum(oct2)
+
+perc1 = (sum7/sum1) * 100
+perc2 = (sum8/sum2) * 100
+perc3 = (sum9/sum3) * 100
+perc4 = (sum10/sum4) * 100
+perc5 = (sum11/sum5) * 100
+perc6 = (sum12/sum6) * 100
+
+list5 = [perc1,perc2,perc3,perc4,perc5,perc6] # numbers 3,4,5 after "list" stand for elevation ranges
+fullsum1 = np.sum(all_daily1)
+fullsum2 = np.sum(all_daily2)
+total_perc5 = (fullsum2/fullsum1) # numbers 3,4,5 after "total_perc" stand for elevation ranges
+list5 = np.array(list5)/100  # numbers 3,4,5 after "list" stand for elevation ranges
+
+# calculate monthly fractions for entire study domain
+
+all_daily1 = np.nansum(cg_daily_counts1,axis=0)
+all_daily2 = np.nansum(dry_daily_counts,axis=0)
+
+may1 = all_daily1[:31]
+jun1 = all_daily1[31:61]
+jul1 = all_daily1[61:92]
+aug1 = all_daily1[92:123]
+sep1 = all_daily1[123:153]
+oct1 = all_daily1[153:]
+
+may2 = all_daily2[:31]
+jun2 = all_daily2[31:61]
+jul2 = all_daily2[61:92]
+aug2 = all_daily2[92:123]
+sep2 = all_daily2[123:153]
+oct2 = all_daily2[153:]
+
+sum1 = np.sum(may1)
+sum2 = np.sum(jun1)
+sum3 = np.sum(jul1)
+sum4 = np.sum(aug1)
+sum5 = np.sum(sep1)
+sum6 = np.sum(oct1)
+
+sum7 = np.sum(may2)
+sum8 = np.sum(jun2)
+sum9 = np.sum(jul2)
+sum10 = np.sum(aug2)
+sum11 = np.sum(sep2)
+sum12 = np.sum(oct2)
+
+perc1 = (sum7/sum1) * 100
+perc2 = (sum8/sum2) * 100
+perc3 = (sum9/sum3) * 100
+perc4 = (sum10/sum4) * 100
+perc5 = (sum11/sum5) * 100
+perc6 = (sum12/sum6) * 100
+
+list1 = [perc1,perc2,perc3,perc4,perc5,perc6]
+
+fullsum1 = np.sum(all_daily1)
+fullsum2 = np.sum(all_daily2)
+total_perc = (fullsum2/fullsum1)
+
+months = np.arange(0,6,1)
+
+fig = plt.figure(figsize=(6,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+#plt.bar(months-0.3, height=list1, width=0.2, color='cornflowerblue')
+plt.bar(months-0.2, height=list3, width=0.2, color='#d9ad7c')
+plt.bar(months+0, height=list4, width=0.2, color='#a2836e')
+plt.bar(months+0.2, height=list5, width=0.2, color='#674d3c')
+plt.xticks(np.arange(0,6,1), ('MAY','JUN','JUL','AUG','SEP','OCT'), fontsize = 16)
+#plt.legend(['All elevations','<1000 m','1000 to 2000 m','>2000 m'],fontsize=14)
+plt.yticks(np.arange(0,0.81,0.1), fontsize = 16)
+#plt.ylabel('Percent of total CG lightning', fontsize = 18)
+plt.axhline(y = total_perc, color = 'cornflowerblue', linestyle = '--', lw=2)
+plt.axhline(y = total_perc3, color = '#d9ad7c', linestyle = '--', lw=2)
+plt.axhline(y = total_perc4, color = '#a2836e', linestyle = '--', lw=2)
+plt.axhline(y = total_perc5, color = '#674d3c', linestyle = '--', lw=2)
+#plt.xlabel('Month', fontsize = 15)
+plt.title('D. Average dry lightning fractions', fontsize = 23)
+#plt.title('Fraction of study area', fontsize = 23)
