@@ -1,2 +1,528 @@
 #!/usr/bin/env python3
 
+import numpy as np
+import matplotlib.pyplot as plt   
+from mpl_toolkits.basemap import Basemap
+
+import matplotlib as mpl
+mpl.rc('font',family='Arial')
+
+'''
+all datasets for this code can be downloaded from Zenodo.org (see README for details).
+'''
+
+# import thermodynamic variables and their anomalies
+utlr = np.load('utlr.npy')
+utlr_anoms = np.load('utlr_anoms.npy')
+mtlr = np.load('mtlr.npy')
+mtlr_anoms = np.load('mtlr_anoms.npy')
+dd850 = np.load('dd850.npy')
+dd850_anoms = np.load('dd850_anoms.npy')
+wind500 = np.load('wind500.npy')
+wind500_anoms = np.load('wind500_anoms.npy')
+tmax = np.load('tmax.npy')
+tmax_anoms = np.load('tmax_anoms.npy')
+moist700500 = np.load('moist700500.npy')
+moist700500_anoms = np.load('moist700500_anoms.npy')
+
+# import other datasets
+dryvec_warm = np.load('dryvec_warm.npy') # index of days which had dry lightning
+wetvec_warm = np.load('wetvec_warm.npy') # index of days which had "wet" lightning
+geo_trimmed = np.load('geo_trimmed.npy') # surface elevations
+geo_trimmed_850 = np.load('geo_trimmed_850.npy') # surface elevations below 850 hPa
+
+# 500 hPa wind speed
+
+this_var = wind500
+this_var_anom = wind500_anoms
+vals_dry = np.empty(1677)
+vals_wet = np.empty(1677)
+vals_diff = np.empty(1677)
+vals_dry[:] = np.nan
+vals_wet[:] = np.nan
+vals_diff[:] = np.nan
+for k in range(1677):
+    if ~np.isnan(geo_trimmed[k]):
+        cell1 = dryvec_warm[:,k]
+        cell2 = wetvec_warm[:,k]
+        cell_var = this_var[:,k]
+        cell_var_anom = this_var_anom[:,k]
+        subs_dry = cell_var[cell1 > 0]
+        subs_wet = cell_var[cell2 > 0]
+        subs_dry_anoms = cell_var_anom[cell1 > 0]
+        vals_dry[k] = np.nanmean(subs_dry)
+        vals_wet[k] = np.nanmean(subs_wet)
+        vals_diff[k] = np.nanmean(subs_dry_anoms)
+
+var = np.reshape(vals_dry,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',8))
+cb = plt.colorbar(ticks=np.arange(6,14.1,2))
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(6,14)
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',12))
+cb = plt.colorbar(ticks=np.arange(-6,6.1,2), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-6,6)
+
+var = np.reshape(vals_dry,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',8))
+cb = plt.colorbar(ticks=np.arange(6,14.1,2))
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(6,14)
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',12))
+cb = plt.colorbar(ticks=np.arange(-6,6.1,2), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-6,6)
+
+# UTLR
+
+this_var = utlr
+this_var_anom = utlr_anoms
+vals_dry = np.empty(1677)
+vals_wet = np.empty(1677)
+vals_diff = np.empty(1677)
+vals_dry[:] = np.nan
+vals_wet[:] = np.nan
+vals_diff[:] = np.nan
+for k in range(1677):
+    if ~np.isnan(geo_trimmed[k]):
+        cell1 = dryvec_warm[:,k]
+        cell2 = wetvec_warm[:,k]
+        cell_var = this_var[:,k]
+        cell_var_anom = this_var_anom[:,k]
+        subs_dry = cell_var[cell1 > 0]
+        subs_wet = cell_var[cell2 > 0]
+        subs_dry_anoms = cell_var_anom[cell1 > 0]
+        vals_dry[k] = np.nanmean(subs_dry)
+        vals_wet[k] = np.nanmean(subs_wet)
+        vals_diff[k] = np.nanmean(subs_dry_anoms)
+
+var = np.reshape(vals_dry,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',10))
+cb = plt.colorbar(ticks=np.arange(6.6,7.61,0.2))
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(6.6,7.6)
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',16))
+cb = plt.colorbar(ticks=np.arange(-1.6,1.61,0.4), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-1.6,1.6)
+
+var = np.reshape(vals_diff,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',16))
+cb = plt.colorbar(ticks=np.arange(-1.6,1.61,0.4), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=9)
+plt.clim(-1.6,1.6)
+
+# MTLR
+
+this_var = mtlr
+this_var_anom = mtlr_anoms
+vals_dry = np.empty(1677)
+vals_wet = np.empty(1677)
+vals_diff = np.empty(1677)
+vals_dry[:] = np.nan
+vals_wet[:] = np.nan
+vals_diff[:] = np.nan
+for k in range(1677):
+    if ~np.isnan(geo_trimmed[k]):
+        cell1 = dryvec_warm[:,k]
+        cell2 = wetvec_warm[:,k]
+        cell_var = this_var[:,k]
+        cell_var_anom = this_var_anom[:,k]
+        subs_dry = cell_var[cell1 > 0]
+        subs_wet = cell_var[cell2 > 0]
+        subs_dry_anoms = cell_var_anom[cell1 > 0]
+        vals_dry[k] = np.nanmean(subs_dry)
+        vals_wet[k] = np.nanmean(subs_wet)
+        vals_diff[k] = np.nanmean(subs_dry_anoms)
+
+var = np.reshape(vals_dry,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',12))
+cb = plt.colorbar(ticks=np.arange(6.6,7.81,0.2))
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(6.6,7.8)
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',12))
+cb = plt.colorbar(ticks=np.arange(-1.2,1.21,0.4), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-1.2,1.2)
+
+var = np.reshape(vals_diff,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',12))
+cb = plt.colorbar(ticks=np.arange(-1.2,1.21,0.4), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=9)
+plt.clim(-1.2,1.2)
+
+# 700-500 hPa specific humidity
+
+this_var = moist700500
+this_var_anom = moist700500_anoms
+vals_dry = np.empty(1677)
+vals_wet = np.empty(1677)
+vals_diff = np.empty(1677)
+vals_dry[:] = np.nan
+vals_wet[:] = np.nan
+vals_diff[:] = np.nan
+for k in range(1677):
+    if ~np.isnan(geo_trimmed[k]):
+        cell1 = dryvec_warm[:,k]
+        cell2 = wetvec_warm[:,k]
+        cell_var = this_var[:,k]
+        cell_var_anom = this_var_anom[:,k]
+        subs_dry = cell_var[cell1 > 0]
+        subs_wet = cell_var[cell2 > 0]
+        subs_dry_anoms = cell_var_anom[cell1 > 0]
+        vals_dry[k] = np.nanmean(subs_dry)
+        vals_wet[k] = np.nanmean(subs_wet)
+        vals_diff[k] = np.nanmean(subs_dry_anoms)
+
+var = np.reshape(vals_dry,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('Greens',10))
+cb = plt.colorbar(ticks=np.arange(2.5,5.1,0.5))
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(2.5,5)
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('PRGn',12))
+cb = plt.colorbar(ticks=np.arange(-3,3.1,1), extend = 'max', aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-3,3)
+
+var = np.reshape(vals_diff,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('PRGn',12))
+cb = plt.colorbar(ticks=np.arange(-3,3.1,1), extend = 'max', aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=9)
+plt.clim(-3,3)
+
+# 850 hPa dewpoint depression
+
+this_var = dd850
+this_var_anom = dd850_anoms
+vals_dry = np.empty(1677)
+vals_wet = np.empty(1677)
+vals_diff = np.empty(1677)
+vals_dry[:] = np.nan
+vals_wet[:] = np.nan
+vals_diff[:] = np.nan
+for k in range(1677):
+    if ~np.isnan(geo_trimmed_850[k]):
+        cell1 = dryvec_warm[:,k]
+        cell2 = wetvec_warm[:,k]
+        cell_var = this_var[:,k]
+        cell_var_anom = this_var_anom[:,k]
+        subs_dry = cell_var[cell1 > 0]
+        subs_wet = cell_var[cell2 > 0]
+        subs_dry_anoms = cell_var_anom[cell1 > 0]
+        vals_dry[k] = np.nanmean(subs_dry)
+        vals_wet[k] = np.nanmean(subs_wet)
+        vals_diff[k] = np.nanmean(subs_dry_anoms)
+
+# code to mask out grid cells above 850 hPa
+mask_idx = np.empty(1677)
+mask_idx[:] = np.nan
+for k in range(1677):
+    cell1 = geo_trimmed[k]
+    cell2 = geo_trimmed_850[k]
+    if ~np.isnan(cell1) and np.isnan(cell2):
+        mask_idx[k] = 1
+
+var = np.reshape(vals_dry,(39,43))
+var1 = np.reshape(mask_idx,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',10))
+cb = plt.colorbar(ticks=np.arange(10,20.1,2))
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(10,20)
+m.pcolormesh(lon, lat, var1, latlon=True, cmap = plt.cm.get_cmap('hot',2))
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',24))
+cb = plt.colorbar(ticks=np.arange(-12,12.1,4), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-12,12)
+m.pcolormesh(lon, lat, var1, latlon=True, cmap = plt.cm.get_cmap('hot',2))
+
+var = np.reshape(vals_diff,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',24))
+cb = plt.colorbar(ticks=np.arange(-12,12.1,4), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=9)
+plt.clim(-12,12)
+m.pcolormesh(lon, lat, var1, latlon=True, cmap = plt.cm.get_cmap('hot',2))
+
+# TMAX
+
+this_var = tmax
+this_var_anom = tmax_anoms
+vals_dry = np.empty(1677)
+vals_wet = np.empty(1677)
+vals_diff = np.empty(1677)
+vals_dry[:] = np.nan
+vals_wet[:] = np.nan
+vals_diff[:] = np.nan
+for k in range(1677):
+    if ~np.isnan(geo_trimmed[k]):
+        cell1 = dryvec_warm[:,k]
+        cell2 = wetvec_warm[:,k]
+        cell_var = this_var[:,k]
+        cell_var_anom = this_var_anom[:,k]
+        subs_dry = cell_var[cell1 > 0]
+        subs_wet = cell_var[cell2 > 0]
+        subs_dry_anoms = cell_var_anom[cell1 > 0]
+        vals_dry[k] = np.nanmean(subs_dry)
+        vals_wet[k] = np.nanmean(subs_wet)
+        vals_diff[k] = np.nanmean(subs_dry_anoms)
+
+var = np.reshape(vals_dry,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',10))
+cb = plt.colorbar(ticks=np.arange(15,35.01,5), extend='max')
+#cb.ax.set_title('$^\circ$C',size=20)
+cb.ax.tick_params(labelsize=25)
+plt.clim(15,35)
+#plt.title(' (a) (b) (c) (d) (e) (f) (g) (h) (i) (j) (k) (l) (m) (n) (o) (p) (q) (r)  ')
+
+var = np.reshape(vals_dry-vals_wet,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',20))
+cb = plt.colorbar(ticks=np.arange(-10,10.1,2), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=12)
+plt.clim(-10,10)
+#plt.title('Tmax difference (dry minus wet lightning)')
+
+var = np.reshape(vals_diff,(39,43))
+lat = np.arange(32.5-0.125,42.26-0.125,0.25)
+lon = np.arange(-124.5-0.125,-113.74-0.125,0.25)
+lon, lat = np.meshgrid(lon, lat)
+
+m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.1E6,
+            lat_0=37.9, lon_0=-121.5)
+m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+m.drawcoastlines(color='black')
+m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',20))
+cb = plt.colorbar(ticks=np.arange(-10,10.1,2), aspect=45)
+#cb.ax.set_title('$^\circ$C/Km',size=20)
+cb.ax.tick_params(labelsize=9)
+plt.clim(-10,10)
+#plt.title('Tmax difference - dry CG vs. climatology')
