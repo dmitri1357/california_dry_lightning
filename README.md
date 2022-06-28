@@ -1,2 +1,1 @@
-# california_dry_lightning
-Code to create figures for the California dry lightning paper.
+This repository contains code to recreate all figures in the manuscript titled "Meteorological and geographical factors associated with dry lightning in central and northern California" by Kalashnikov et al. (2022). The associated datasets which this code uses are stored in the following open-access repository: https://zenodo.org/record/6774536#.YruU-ZDMJJR. Please contact me with any questions or additional requests at dmitri.kalashnikov@wsu.edu. -Dmitri
