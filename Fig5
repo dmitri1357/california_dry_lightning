@@ -1,2 +1,438 @@
 #!/usr/bin/env python3
 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt   
+from mpl_toolkits.basemap import Basemap
+from sklearn.cluster import KMeans
+
+# set figure font to Arial
+import matplotlib as mpl
+mpl.rc('font',family='Arial')
+
+'''
+all datasets for this code can be downloaded from Zenodo.org (see README for details).
+'''
+
+# plots A-D
+
+z500_cal = np.load('z500_cal.npy') # loading dataset of 500 hPa geopotential heights from ERA5
+z500 = np.reshape(z500_cal,(12410,14241))
+z500 = z500.T
+del z500_cal
+
+dry_bool_cropped = np.load('dry_bool_cropped2.npy')
+index95 = np.load('index95.npy')
+
+# k-means clustering of Z500
+
+idx_used = index95
+z9 = z500[:,idx_used] # removed b
+X = z9.T
+X.shape
+
+num_clust = 4
+
+kmeans = KMeans(n_clusters=num_clust, 
+                n_init=100, 
+                max_iter=500, 
+                random_state=31)
+kmeans.fit(X)
+labels = kmeans.labels_
+
+idxs = [np.where(labels == k)[0] for k in range(num_clust)]
+ks = [idx_used[idxs[k]] for k in range(num_clust)]
+
+sizes = []
+percs = []
+for k in range(num_clust):
+    x = ks[k]
+    percs.append((np.size(x)/X.shape[0]*100))
+    sizes.append(np.size(x))
+    
+def mean2(x):
+    y = np.sum(x) / np.size(x)
+    return y
+
+def corr2(a,b): # define function to compute 2D pattern correlation
+    a = a - mean2(a)
+    b = b - mean2(b)
+
+    r = (a*b).sum() / np.sqrt((a*a).sum() * (b*b).sum())
+    return r
+  
+# extract median pattern correlations
+median_corrs = []
+for j in range(num_clust):
+    this_clust = ks[j]
+    z9 = z500[:,this_clust]
+    z9m = np.mean(z9,axis=1)
+    corrs = np.empty(len(this_clust))
+    for k in range(len(this_clust)):
+        day = z9[:,k]
+        corrs[k] = corr2(z9m,day)
+    corrs = pd.DataFrame({'corr':corrs})
+    median_corrs.append(np.median(corrs))
+
+fig = plt.figure(figsize=(14,6))
+clusts = [1,2,3,0] # setting the cluster visualization order manually for better presentation 
+for x in range(num_clust):
+    fig.add_subplot(1,num_clust,x+1)
+    z9 = z500[:,ks[clusts[x]]]
+    z9m = np.mean(z9,axis=1)
+    zvar = np.reshape(z9m,(101,141))
+    var1 = np.flipud(zvar)
+    
+    lat = np.arange(25,50.01,0.25)
+    lon = np.arange(-140,-104.99,0.25)
+    lon, lat = np.meshgrid(lon, lat)
+    
+    m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+                width=3.65E6, height=3.5E6,
+                lat_0=37.5, lon_0=-122.5)
+    m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+    m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+    m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+    m.drawcoastlines(color='black',linewidth=0.5)
+    m.pcolormesh(lon, lat, var1, latlon=True, 
+                 cmap=plt.cm.get_cmap('rainbow',23))
+    #plt.colorbar()
+    plt.clim(5500,5960)
+    plt.text(1E5,1E5,'{} = {}'.format('$\it{r}$',np.round(median_corrs[clusts[x]],2)), size=15)
+    x, y = m(lon, lat)
+    clevs1 = np.arange(5500,5960,20)
+    csl = m.contour(x, y, var1, clevs1, colors = 'k', linewidths=0.8)
+    #plt.clabel(csl, fmt = '%.1d {}'.format(''), inline = True, fontsize = 8)
+    m.readshapefile('study_area3_wgs84',name='null',color='b',linewidth=1.5)
+fig.subplots_adjust(hspace = 0.3)
+
+# plots E-H
+
+lat = np.arange(32.5-0.05,42.01-0.05,0.1)
+lon = np.arange(-124.5-0.05,-113.99-0.05,0.1)
+lon, lat = np.meshgrid(lon, lat)
+
+fig = plt.figure(figsize=(14,6))
+clusts = [1,2,3,0] # setting the cluster visualization order manually for better presentation 
+for x in range(num_clust):
+    fig.add_subplot(1,num_clust,x+1)
+    clust_id = ks[clusts[x]]
+    clust = dry_bool_cropped[clust_id,:]
+    sums = np.sum(clust,axis=0)
+    totsums = np.sum(dry_bool_cropped[idx_used,:],axis=0)
+    percs = sums/totsums
+    clust_perc = np.size(clust_id)/X.shape[0]
+    likelihood = percs/clust_perc
+    
+    likevec = np.empty(10176)
+    for k in range(10176):
+        cell = likelihood[k]
+        if cell > 3: 
+            likevec[k] = 4 # 3-4x
+        elif cell > 2 and cell <= 3:
+            likevec[k] = 3 # 2-3x
+        elif cell > 1.5 and cell <= 2:
+            likevec[k] = 2 # 1.5-2x
+        elif cell > 1 and cell <= 1.5:
+            likevec[k] = 1 # 1-1.5x
+        elif cell >= 0.6667 and cell <= 1:
+            likevec[k] = -1 # 0.67-1x
+        elif cell > 0.5 and cell < 0.6667:
+            likevec[k] = -2 # 0.5-0.67x
+        elif cell > 0.33 and cell < 0.5:
+            likevec[k] = -3 # 0.33-0.5x
+        elif cell > 0 and cell <= 0.33:
+            likevec[k] = -4 # 0.25-0.33x
+        else:
+            likevec[k] = 'nan'
+    
+    var = np.reshape(likevec,(96,106))
+    #var = np.log10(var)
+    m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=8.5E5,
+            lat_0=38.2, lon_0=-121.5)
+    m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+    m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+    m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+    m.drawcoastlines(color='black')
+    m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('RdBu_r',8))
+    #cb = plt.colorbar(extend='both')
+    #cb.set_ticks([-3.5,-2.5,-1.5,-0.5,0.5,1.5,2.5,3.5])
+    #cb.set_ticklabels(['0.25-0.33','0.33-0.5','0.5-0.67','0.67-1','1-1.5','1.5-2','2-3','3-4'])
+    plt.clim(-4,4)
+fig.subplots_adjust(hspace = 0.3)
+
+# plots I-N
+
+utlr = np.load('utlr.npy')
+mtlr = np.load('mtlr.npy')
+dd850 = np.load('dd850.npy')
+wind500 = np.load('wind500.npy')
+moist700500 = np.load('moist700500.npy')
+tmax = np.load('tmax.npy')
+
+# normalize all variables by the cosine of latitude to remove geographic distortion
+
+lats = np.arange(32.5,42.01,0.25)
+lons = np.arange(-124.5,-113.99,0.25)
+lats = np.append(lats,42.25)
+lons = np.append(lons,-113.75)
+
+areas = np.empty([39,43])
+for i in range(39):
+    lat1 = lats[i]
+    lat2 = lats[i+1]
+    lat_diff = lat2 - lat1
+    lat_dist = np.abs(lat_diff * 111) # km for one degree of latitude in the mid-latitudes 
+    for j in range(43):
+        lon1 = lons[j]
+        lon2 = lons[j+1]
+        lon_diff = lon2 - lon1
+        cosrad = np.cos(np.deg2rad(lat1))
+        deg1 = cosrad * 111.32 # km for one degree of longitude at equator
+        lon_dist = deg1 * lon_diff
+        areas[i,j] = lat_dist * lon_dist
+
+areas = areas/625 # 625 is area (25km x 25km), divide by area to normalize
+area_vec = np.reshape(areas,1677)
+
+utlr1 = np.empty([6256,1677])
+for k in range(6256):
+    day = utlr[k,:]
+    utlr1[k,:] = day/area_vec
+
+mtlr1 = np.empty([6256,1677])
+for k in range(6256):
+    day = mtlr[k,:]
+    mtlr1[k,:] = day/area_vec
+
+dd8501 = np.empty([6256,1677])
+for k in range(6256):
+    day = dd850[k,:]
+    dd8501[k,:] = day/area_vec
+    
+wind5001 = np.empty([6256,1677])
+for k in range(6256):
+    day = wind500[k,:]
+    wind5001[k,:] = day/area_vec
+
+moist7005001 = np.empty([6256,1677])
+for k in range(6256):
+    day = moist700500[k,:]
+    moist7005001[k,:] = day/area_vec
+
+tmax1 = np.empty([6256,1677])
+for k in range(6256):
+    day = tmax[k,:]
+    tmax1[k,:] = day/area_vec
+
+dates = pd.date_range(start='1/1/1987', end='12/31/2020')
+dates = dates[~((dates.month == 2) & (dates.day == 29))]
+
+drysums = np.nansum(dry_bool_cropped,axis=1)
+perc = np.round((drysums/2498)*100,2)
+df = pd.DataFrame({'date':dates,'perc':perc})
+
+df['month'] = pd.to_datetime(df.date).dt.month
+df = df[~(df.month == 1)]
+df = df[~(df.month == 2)]
+df = df[~(df.month == 3)]
+df = df[~(df.month == 4)]
+df = df[~(df.month == 11)]
+df = df[~(df.month == 12)]
+
+df1 = df.reset_index()
+df1 = df1[df1['index'].isin(index95)]
+wide = df1.index.values
+
+alldays = np.arange(6256)
+not_wide = []
+for k in range(6256):
+    day = alldays[k]
+    if day not in wide:
+        not_wide.append(day)     
+not_wide = np.array(not_wide)
+
+# compute climatological means
+utlr_avg = np.nanmean(utlr1,axis=1)
+mtlr_avg = np.nanmean(mtlr1,axis=1)
+dd850_avg = np.nanmean(dd8501,axis=1)
+wind500_avg = np.nanmean(wind5001,axis=1)
+moist700500_avg = np.nanmean(moist7005001,axis=1)
+tmax_avg = np.nanmean(tmax1,axis=1)
+
+# clusters are in order of presentation in the figure
+clust1 = df1[df1['index'].isin(ks[1])]
+clust2 = df1[df1['index'].isin(ks[2])]
+clust3 = df1[df1['index'].isin(ks[3])]
+clust4 = df1[df1['index'].isin(ks[0])]
+
+# plot I (WIND500)
+
+bin1 = wind500_avg[clust1.index.values]
+bin2 = wind500_avg[clust2.index.values]
+bin3 = wind500_avg[clust3.index.values]
+bin4 = wind500_avg[clust4.index.values]
+binw = wind500_avg[not_wide]
+
+colors = ['tab:brown','y','tab:green','tab:purple']
+fig = plt.figure(figsize=(4,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+bp = plt.boxplot([bin1,bin2,bin3,bin4], patch_artist=True,
+             whis = [10,90], sym = 'o', showfliers = True,
+             medianprops = {'color': 'k'}, widths=0.6)
+[bp['boxes'][k].set(color=colors[k]) for k in range(4)]
+[bp['boxes'][k].set(facecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markeredgecolor='k') for k in range(4)]
+[bp['fliers'][k].set(markerfacecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markersize=12) for k in range(4)]
+#plt.xticks(np.arange(1,3,1), ('Cluster 1 \n days','Non-widespread \n days'), fontsize = 10)
+plt.xticks(np.arange(1,5,1), ('1','2*',
+           '3','4*'), fontsize = 25)
+plt.yticks(np.arange(0,21,4), fontsize = 25)
+#plt.ylabel('Meters/second', fontsize = 24)
+plt.axhline(np.mean(binw),ls='--',c='k',lw=3)
+plt.title('$\mathregular{UV_{500}}$', fontsize = 30)
+plt.tight_layout()
+
+# plot J (UTLR)
+
+bin1 = utlr_avg[clust1.index.values]
+bin2 = utlr_avg[clust2.index.values]
+bin3 = utlr_avg[clust3.index.values]
+bin4 = utlr_avg[clust4.index.values]
+binw = utlr_avg[not_wide]
+
+colors = ['tab:brown','y','tab:green','tab:purple']
+fig = plt.figure(figsize=(4,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+bp = plt.boxplot([bin1,bin2,bin3,bin4], patch_artist=True,
+             whis = [10,90], sym = 'o', showfliers = True,
+             medianprops = {'color': 'k'}, widths=0.6)
+[bp['boxes'][k].set(color=colors[k]) for k in range(4)]
+[bp['boxes'][k].set(facecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markeredgecolor='k') for k in range(4)]
+[bp['fliers'][k].set(markerfacecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markersize=12) for k in range(4)]
+#plt.xticks(np.arange(1,3,1), ('Cluster 1 \n days','Non-widespread \n days'), fontsize = 10)
+plt.xticks(np.arange(1,5,1), ('1*','2*',
+           '3*','4'), fontsize = 25)
+plt.yticks(np.arange(6,8.6,0.5), fontsize = 25)
+#plt.ylabel('$\circ$C/Km', fontsize = 25)
+plt.axhline(np.mean(binw),ls='--',c='k',lw=3)
+plt.title('UTLR', fontsize = 30)
+plt.tight_layout()
+
+# plot K (MTLR)
+
+bin1 = mtlr_avg[clust1.index.values]
+bin2 = mtlr_avg[clust2.index.values]
+bin3 = mtlr_avg[clust3.index.values]
+bin4 = mtlr_avg[clust4.index.values]
+binw = mtlr_avg[not_wide]
+
+colors = ['tab:brown','y','tab:green','tab:purple']
+fig = plt.figure(figsize=(4,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+bp = plt.boxplot([bin1,bin2,bin3,bin4], patch_artist=True,
+             whis = [10,90], sym = 'o', showfliers = True,
+             medianprops = {'color': 'k'}, widths=0.6)
+[bp['boxes'][k].set(color=colors[k]) for k in range(4)]
+[bp['boxes'][k].set(facecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markeredgecolor='k') for k in range(4)]
+[bp['fliers'][k].set(markerfacecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markersize=12) for k in range(4)]
+#plt.xticks(np.arange(1,3,1), ('Cluster 1 \n days','Non-widespread \n days'), fontsize = 10)
+plt.xticks(np.arange(1,5,1), ('1*','2*',
+           '3*','4*'), fontsize = 25)
+plt.yticks(np.arange(6,9.6,0.5), fontsize = 25)
+#plt.ylabel('$\circ$C/Km', fontsize = 25)
+plt.axhline(np.mean(binw),ls='--',c='k',lw=3)
+plt.title('MTLR', fontsize = 30)
+plt.tight_layout()
+
+# plot L (700-500 hPa specific humidity)
+
+bin1 = moist700500_avg[clust1.index.values]
+bin2 = moist700500_avg[clust2.index.values]
+bin3 = moist700500_avg[clust3.index.values]
+bin4 = moist700500_avg[clust4.index.values]
+binw = moist700500_avg[not_wide]
+
+colors = ['tab:brown','y','tab:green','tab:purple']
+fig = plt.figure(figsize=(4,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+bp = plt.boxplot([bin1,bin2,bin3,bin4], patch_artist=True,
+             whis = [10,90], sym = 'o', showfliers = True,
+             medianprops = {'color': 'k'}, widths=0.6)
+[bp['boxes'][k].set(color=colors[k]) for k in range(4)]
+[bp['boxes'][k].set(facecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markeredgecolor='k') for k in range(4)]
+[bp['fliers'][k].set(markerfacecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markersize=12) for k in range(4)]
+#plt.xticks(np.arange(1,3,1), ('Cluster 1 \n days','Non-widespread \n days'), fontsize = 10)
+plt.xticks(np.arange(1,5,1), ('1*','2*',
+           '3*','4*'), fontsize = 25)
+plt.yticks(np.arange(1,7.1,1), fontsize = 25)
+#plt.ylabel('Kg/Kg', fontsize = 24)
+plt.axhline(np.mean(binw),ls='--',c='k',lw=3)
+plt.title('$\mathregular{Q_{700-500}}$', fontsize = 30)
+#plt.title('     700-500 hPa \n    specific humidity', fontsize = 25)
+plt.tight_layout()
+
+# plot M (DD850)
+
+bin1 = dd850_avg[clust1.index.values]
+bin2 = dd850_avg[clust2.index.values]
+bin3 = dd850_avg[clust3.index.values]
+bin4 = dd850_avg[clust4.index.values]
+binw = dd850_avg[not_wide]
+
+colors = ['tab:brown','y','tab:green','tab:purple']
+fig = plt.figure(figsize=(4,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+bp = plt.boxplot([bin1,bin2,bin3,bin4], patch_artist=True,
+             whis = [10,90], sym = 'o', showfliers = True,
+             medianprops = {'color': 'k'}, widths=0.6)
+[bp['boxes'][k].set(color=colors[k]) for k in range(4)]
+[bp['boxes'][k].set(facecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markeredgecolor='k') for k in range(4)]
+[bp['fliers'][k].set(markerfacecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markersize=12) for k in range(4)]
+#plt.xticks(np.arange(1,3,1), ('Cluster 1 \n days','Non-widespread \n days'), fontsize = 10)
+plt.xticks(np.arange(1,5,1), ('1','2*',
+           '3','4*'), fontsize = 25)
+plt.yticks(np.arange(0,31,5), fontsize = 25)
+#plt.ylabel('$\circ$C', fontsize = 24)
+plt.axhline(np.mean(binw),ls='--',c='k',lw=3)
+plt.title('$\mathregular{DD_{850}}$', fontsize = 30)
+plt.tight_layout()
+
+# plot N (Tmax)
+
+bin1 = tmax_avg[clust1.index.values]
+bin2 = tmax_avg[clust2.index.values]
+bin3 = tmax_avg[clust3.index.values]
+bin4 = tmax_avg[clust4.index.values]
+binw = tmax_avg[not_wide]
+
+colors = ['tab:brown','y','tab:green','tab:purple']
+fig = plt.figure(figsize=(4,8))
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+bp = plt.boxplot([bin1,bin2,bin3,bin4], patch_artist=True,
+             whis = [10,90], sym = 'o', showfliers = True,
+             medianprops = {'color': 'k'}, widths=0.6)
+[bp['boxes'][k].set(color=colors[k]) for k in range(4)]
+[bp['boxes'][k].set(facecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markeredgecolor='k') for k in range(4)]
+[bp['fliers'][k].set(markerfacecolor=colors[k]) for k in range(4)]
+[bp['fliers'][k].set(markersize=12) for k in range(4)]
+#plt.xticks(np.arange(1,3,1), ('Cluster 1 \n days','Non-widespread \n days'), fontsize = 10)
+plt.xticks(np.arange(1,5,1), ('1*','2*',
+           '3','4'), fontsize = 25)
+plt.yticks(np.arange(15,40.1,5), fontsize = 25)
+#plt.ylabel('$\circ$C', fontsize = 25)
+plt.axhline(np.mean(binw),ls='--',c='k',lw=3)
+plt.title('$\mathregular{T_{max}}$', fontsize = 30)
+plt.tight_layout()
+
