@@ -1,2 +1,177 @@
 #!/usr/bin/env python3
 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt   
+from mpl_toolkits.basemap import Basemap
+import seaborn as sns
+from tqdm import tqdm
+
+import matplotlib as mpl
+mpl.rc('font',family='Arial')
+
+'''
+all datasets for this code can be downloaded from Zenodo.org (see README for details).
+'''
+
+# plot A
+
+# importing dataset of boolean indices indicating whether grid cell had dry lightning or not
+dry_bool_cropped = np.load('dry_bool_cropped2.npy')
+
+dates = pd.date_range(start='1/1/1987', end='12/31/2020')
+dates = dates[~((dates.month == 2) & (dates.day == 29))]
+
+drysums = np.nansum(dry_bool_cropped,axis=1)
+perc = np.round((drysums/2498)*100,2) # 2498 grid cells in study domain
+df = pd.DataFrame({'Date':dates,'dry_cg':perc})
+
+df['month'] = pd.to_datetime(df.Date).dt.month
+df = df[~(df.month == 1)]
+df = df[~(df.month == 2)]
+df = df[~(df.month == 3)]
+df = df[~(df.month == 4)]
+df = df[~(df.month == 11)]
+df = df[~(df.month == 12)]
+df1 = df[df.iloc[:,1] > 0]
+
+percval = np.percentile(df1.iloc[:,1],95) # calculate extent corresponding to 95th percentile
+df95 = df1[df1.iloc[:,1] > percval] 
+index95 = np.array(df95.index.values) # index of days exceeding 95th percentile ("widespread" days)
+
+mo_counts = [df95[df95.month==mo].shape[0] for mo in [5,6,7,8,9,10]]
+# figuring out average elevations affected by widespread days in each month
+surf_geo_trimmed = np.load('surf_geo_trimmed.npy')
+surf_vec = np.reshape(surf_geo_trimmed,10176)
+
+avg_elevs = []
+mos = [5,6,7,8,9,10]
+for k in range(6):
+    mo = mos[k]
+    dfx = df95[df95.month==mo]
+    idxs = dfx.index.values
+    mo_elevs = []
+    for j in range(dfx.shape[0]):
+        idx = idxs[j]
+        day = dry_bool_cropped[idx,:]
+        elevs = surf_vec[day==1]
+        mo_elevs.append(np.nanmean(elevs))
+    avg_elevs.append(np.median(mo_elevs))
+        
+avg_elevs = np.array(avg_elevs)
+avg_elevs = (avg_elevs/1800)*5
+
+fig = sns.catplot(x="month", y="dry_cg", kind="swarm", s=5, data=df95,
+                  palette = ['tab:blue','tab:orange','c','r','y','tab:purple'])
+plt.plot(avg_elevs, '-s', color='tab:brown')
+plt.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+plt.ylabel('Percent of study area', fontsize = 14)
+plt.xticks(np.arange(0,6,1), ('MAY','JUN','JUL','AUG','SEP','OCT'), fontsize = 12)
+plt.yticks(np.arange(0,41,5), fontsize = 12)
+plt.title('(a) Seasonality of widespread dry lightning days', fontsize = 14)
+fig.set(xlabel=None)
+plt.axhline(y = percval, color = 'k', linestyle = '--')
+plt.axhline(y = 5, color = 'tab:brown', linestyle = '--', lw=0.4)
+plt.axhline(y = 5/3, color = 'tab:brown', linestyle = '--', lw=0.4)
+plt.axhline(y = 5*(2/3), color = 'tab:brown', linestyle = '--', lw=0.4)
+plt.tight_layout()
+
+# plot B
+
+# calculate maximum daily extent of dry lightning in each year
+df['year'] = pd.to_datetime(df.Date).dt.year
+years = np.arange(1987,2021,1)
+maxvals = np.zeros(34)
+for k in range(34):
+    year = years[k]
+    this_year = df[df.year == year]
+    if this_year.shape[0] > 0:
+        maxvals[k] = np.max(this_year.iloc[:,1])
+        
+# calculating maximum 2-day extent of widespread dry lightning
+
+df = pd.DataFrame({'Date':dates,'dry_cells':drysums})
+vec = list(df.dry_cells)
+tots2day = []
+for k in range(12409):
+    tots2day.append(vec[k] + vec[k+1])
+dates = pd.date_range(start='1/2/1987', end='12/31/2020')
+dates = dates[~((dates.month == 2) & (dates.day == 29))] 
+df2day = pd.DataFrame({'Ending on':dates,'dry_cells':tots2day})
+df2day_sorted = df2day.sort_values(by='dry_cells', ascending=False)
+
+cons_idx = []
+priors = []
+for k in tqdm(range(12408)):
+    day = df2day_sorted.index[k+1]
+    priors.append(df2day_sorted.index[k])
+    diff1 = []
+    diff2 = []
+    for j in range(len(priors)):
+        diff1.append(day-priors[j])
+        diff2.append(priors[j]-day)
+    idx1 = np.size(np.where(np.array(diff1) == 1))
+    idx2 = np.size(np.where(np.array(diff2) == 1))
+    if idx1 > 0 or idx2 > 0:
+        cons_idx.append(1)
+    else:
+        cons_idx.append(0)
+cons_idx.insert(0,0)  
+df2day_sorted['drop_idx'] = cons_idx
+df2day_sorted = df2day_sorted[df2day_sorted.drop_idx == 0]
+
+sums2day = []
+for k in range(12409):
+    day1 = dry_bool_cropped[k,:]
+    day2 = dry_bool_cropped[k+1,:]
+    sum1 = np.nansum(day1)
+    idx2 = day2[day1 == 0]
+    sum2 = np.nansum(idx2)
+    sums2day.append(sum1+sum2)
+
+dates = pd.date_range(start='1/1/1987', end='12/30/2020') # shifted these by 1 day
+dates = dates[~((dates.month == 2) & (dates.day == 29))] 
+df2day = pd.DataFrame({'Ending on':dates,'dry_cells':sums2day})
+df2day_sorted = df2day.sort_values(by='dry_cells', ascending=False)
+
+df2day_sorted['dry_cells'] = (df2day_sorted.dry_cells/2498)*100 # convert to percentages
+df2day_sorted['year'] = pd.to_datetime(df2day_sorted['Ending on']).dt.year
+max2day = df2day_sorted.groupby(['year']).max()
+maxs = list(max2day.iloc[:,1])
+
+annual_widespread_days = np.load('annual_widespread_days.npy')
+
+fig, ax1 = plt.subplots()
+fig.set_size_inches(8,8)
+ax1.plot(maxs, '-D', color='darkred') 
+ax1.plot(maxvals, '-*', markersize=10, color='tomato')
+ax1.grid(linewidth=0.5, color='0.5', alpha=0.5, linestyle='-.')
+ax1.set_yticks(np.arange(0,41,5))
+ax1.set_yticklabels(np.arange(0,41,5), fontsize = 17)
+ax1.set_ylabel('Percent of study area', fontsize = 19)
+ax1.set_ylim(top=40)
+
+# plot C
+
+
+plt.title('B. Widespread dry lightning by year', size=19)
+ax1.set_xticks(np.arange(0,34,1))
+ax1.set_xticklabels(('','','','1990','','','','','1995','','',
+               '','','2000','','','','','2005','','','','','2010','','','',
+               '','2015','','','','','2020'), fontsize = 17)
+plt.axhline(y = percval, color = 'k', linestyle = '--')
+l = plt.legend(['Largest 2-day extent','Largest 1-day extent'], 
+            loc='upper left', fontsize=18)
+for text in l.get_texts():
+    s = str(text)
+    if int(s[20]) == 2:
+        text.set_color('darkred')
+    else:
+        text.set_color('tomato')
+ax2 = ax1.twinx()  
+ax2.bar(np.arange(0,34,1), annual_widespread_days, color='cornflowerblue', alpha=0.7) 
+ax2.set_yticks(np.arange(0,41,5))
+ax2.set_yticklabels(['0','5','10','15','','','','',''], fontsize = 17)
+ax2.set_ylabel('# of widespread days                                                       ', fontsize = 17, color='cornflowerblue')
+ax2.set_ylim(top=40)
+ax2.tick_params(axis='y', labelcolor='cornflowerblue')
