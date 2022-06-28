@@ -150,10 +150,6 @@ ax1.set_yticks(np.arange(0,41,5))
 ax1.set_yticklabels(np.arange(0,41,5), fontsize = 17)
 ax1.set_ylabel('Percent of study area', fontsize = 19)
 ax1.set_ylim(top=40)
-
-# plot C
-
-
 plt.title('B. Widespread dry lightning by year', size=19)
 ax1.set_xticks(np.arange(0,34,1))
 ax1.set_xticklabels(('','','','1990','','','','','1995','','',
@@ -175,3 +171,83 @@ ax2.set_yticklabels(['0','5','10','15','','','','',''], fontsize = 17)
 ax2.set_ylabel('# of widespread days                                                       ', fontsize = 17, color='cornflowerblue')
 ax2.set_ylim(top=40)
 ax2.tick_params(axis='y', labelcolor='cornflowerblue')
+
+# plot C
+
+dates = pd.date_range(start='1/1/1987', end='12/31/2020')
+dates = dates[~((dates.month == 2) & (dates.day == 29))]
+
+drysums = np.nansum(dry_bool_cropped,axis=1)
+perc = np.round((drysums/2498)*100,2) 
+df = pd.DataFrame({'Date':dates,'% of grid cells with dry CG':perc})
+
+df_ranked = df.sort_values(by='% of grid cells with dry CG',ascending=False)
+df_ranked['Rank'] = np.arange(1,12411,1)
+df_ranked = df_ranked[['Rank', 'Date', '% of grid cells with dry CG']] # reorder the columns to show rank first
+df_ranked['month'] = pd.to_datetime(df_ranked.Date).dt.month
+df_ranked = df_ranked[~(df_ranked.month == 1)]
+df_ranked = df_ranked[~(df_ranked.month == 2)]
+df_ranked = df_ranked[~(df_ranked.month == 3)]
+df_ranked = df_ranked[~(df_ranked.month == 4)]
+df_ranked = df_ranked[~(df_ranked.month == 11)]
+df_ranked = df_ranked[~(df_ranked.month == 12)]
+
+lat = np.arange(32.5-0.05,42.01-0.05,0.1)
+lon = np.arange(-124.5-0.05,-113.99-0.05,0.1)
+lon, lat = np.meshgrid(lon, lat)
+
+fig = plt.figure(figsize=(6.5,12))
+#plt.suptitle('10 biggest dry thunderstorm days since 1987', size=14)
+for x in range(10):
+    fig.add_subplot(4,5,x+1)
+    var = dry_bool_cropped[df_ranked.index.values[x],:]
+    summed = np.nansum(var)
+    sumperc = np.round((summed/2498)*100,1)
+    var = np.reshape(var,(96,106))
+    #var = np.log10(var)
+    m = Basemap(projection='lcc', area_thresh=10000, resolution='l',
+            width=9E5, height=1.2E6,
+            lat_0=37.2, lon_0=-121.5)
+    m.fillcontinents(color='gray',lake_color='white',alpha=1,zorder=0)
+    m.drawstates(linewidth=0.5,linestyle='solid',color='k')
+    m.drawcountries(linewidth=0.5,linestyle='solid',color='k')
+    m.drawcoastlines(color='black')
+    m.pcolormesh(lon, lat, var, latlon=True, cmap = plt.cm.get_cmap('YlOrRd',2))
+    #plt.colorbar()
+    x1, y1 = m(-122.42, 37.77)
+    x2, y2 = m(-122.42, 37.17)
+    plt.plot(x1, y1, 'ok', markersize=5)
+    plt.text(x1, y1, '   San', c='k', fontsize=5, fontweight='bold')  
+    plt.text(x2, y2, '   Francisco', c='k', fontsize=5, fontweight='bold')              
+    plt.title('{}) {}'.format(x+1,str(df_ranked.Date.values[x])[:10]), fontsize=10)
+    #plt.text(42000,45000,'{}%'.format(sumperc), size=10)
+fig.subplots_adjust(hspace = 0.2, wspace = 0)
+
+# this code creates the inset charts showing dry lightning extent for 7 day window
+
+df_sorted = df.sort_values(by='% of grid cells with dry CG',ascending=False)
+idx10 = df_sorted.iloc[:10,:].index.values
+windows7 = np.empty([10,7])
+for k in range(10):
+    day = idx10[k]
+    sub_df = df.iloc[day-3:day+4]
+    windows7[k,:] = sub_df.iloc[:,1]
+
+days = ['21-JUN','20-JUN','3-SEP','8-AUG','30-JUL','31-AUG','16-JUN','12-AUG','17-AUG','4-OCT']
+
+dayz = np.arange(1,11,1)
+for x in range(10):
+    fig = plt.figure(figsize=(6,6))
+    var = windows7[x,:]
+    plt.bar(np.arange(7),var,color='darkblue')
+    plt.yticks(np.arange(0,31,5), ('','','','','','',''), fontsize = 50)
+    plt.xticks(np.arange(7), ('-3d','','','{}'.format(days[x]),'','','+3d'), fontsize = 50)
+    plt.axvline(x = 3, color = 'tab:orange', linestyle = '--', lw = 5)
+    plt.axhline(y = 25, color = 'k', linestyle = '--', lw = 5)
+    plt.axhline(y = 15, color = 'k', linestyle = '--', lw = 5)
+    plt.axhline(y = 5, color = 'k', linestyle = '--', lw = 5)
+    plt.text(-0.6,26, '25%', size=50)
+    plt.text(-0.65,16, '15', size=50)
+    plt.text(-0.65,6, '5', size=50)
+    
+ 
