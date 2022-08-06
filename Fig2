@@ -303,6 +303,42 @@ plt.title('B. Dry lightning flashes', size=23)
 
 # plot D
 
+cg_normed = cg_vec_mjjaso/(area_vec/100)
+
+cg1 = cg_normed[:,surf_vec<1000]
+cg2 = cg_normed[:,(surf_vec>=1000)&(surf_vec<=2000)]
+cg3 = cg_normed[:,surf_vec>2000]
+
+splits = np.split(cg1,34,axis=0)
+cg_daily_counts3 = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    cg_daily_counts3[k,:] = cg_tots
+
+splits = np.split(cg2,34,axis=0)
+cg_daily_counts4 = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    cg_daily_counts4[k,:] = cg_tots
+
+splits = np.split(cg3,34,axis=0)
+cg_daily_counts5 = np.empty([34,184])
+for k in tqdm(range(34)):
+    year = splits[k]
+    cg_tots = []
+    for j in range(184):
+        day = year[j,:]
+        cg_tots.append(np.nansum(day))
+    cg_daily_counts5[k,:] = cg_tots
+
 all_daily1 = np.nansum(cg_daily_counts3,axis=0) # numbers 3,4,5 stand for elevation ranges
 all_daily2 = np.nansum(dry_daily_counts3,axis=0) # numbers 3,4,5 stand for elevation ranges
 
