@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import numpy as np
+from geocat.comp import linint2
+
 gridmet = np.load('pr_2016.npy') # load dataset that you want to regrid 
 # make sure this gridded dataset is ordered west-east and south-north - flip it if ordered north-south
 
