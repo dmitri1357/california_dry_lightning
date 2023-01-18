@@ -1,1 +1,18 @@
 #!/usr/bin/env python3
+
+import numpy as np
+
+# the files "cg_vec" and "gridvec" are arrays of lightning and precip with their lat/lon dimensions vectorized (using np.reshape)
+# in this case, the arrays had 106 lats and 96 lons, so 10176 total grid cells 
+
+dry_bool = np.empty([12410,10176]) # boolean index of dry lightning/no dry lightning for 12410 days and 10176 grid cells
+for k in range(12410): # iterate over days
+    day = cg_vec[k,:] # lightning array of shape (12410,10176)
+    prec = gridvec[k,:] # precip array of shape (12410,10176)
+    for j in range(10176): # iterate over grid cells
+        cellday = day[j]
+        cellprec = prec[j]
+        if cellday > 0 and cellprec < 2.5: # boolean to match days which had lightning (>0) and <2.5 mm precip ("dry lightning")
+            dry_bool[k,j] = 1
+        else:
+            dry_bool[k,j] = 0
