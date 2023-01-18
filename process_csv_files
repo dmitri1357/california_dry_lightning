@@ -1,2 +1,60 @@
 #!/usr/bin/env python3
 
+import numpy as np
+import pandas as pd
+
+years = np.arange(2004,2021,1) # this was for 2004-2020, changes this to the range of years you're using
+daynums = [366,365,365,365,366,365,365,365,366,365,365,365,366,365,365,365,366] # index of number of days in each year
+for x in range(17):
+    year = years[x]
+    daynum = daynums[x]
+    df = pd.read_csv('nldn-tiles-{}.csv'.format(year),skiprows=2) # read individual annual CSV files from NLDN
+    df1 = df[(df.CENTERLON>=-125)&(df.CENTERLON<=-103)&(df.CENTERLAT>=31)&(df.CENTERLAT<=49)] # subset to the lat/lon you need, I was doing just western US (31-49N, 125-103W)
+    df1['daynum'] = pd.to_datetime(df1['#ZDAY'].astype(str), format='%Y%m%d').dt.strftime('%j')
+    df1.daynum = df1.daynum.astype('int32')
+    df1 = df1.reset_index()
+    
+    year_array = np.zeros([daynum,181,221]) # number of lats and lons of your array
+    days = np.arange(1,daynum+1,1)
+    lats = np.round(np.arange(31,49.1,0.1),1) # your lat range
+    lons = np.round(np.arange(-125,-102.9,0.1),1) # your lon range
+    
+    for k in range(daynum):
+        this_day = df1[df1.daynum==days[k]]
+        if this_day.shape[0] > 0:
+            for i in range(181):
+                daylat = this_day[this_day.CENTERLAT==lats[i]]
+                if daylat.shape[0] > 0:
+                    for j in range(221):
+                        daylon = daylat[daylat.CENTERLON==lons[j]]
+                        if daylon.shape[0] > 0:
+                            year_array[k,i,j] = daylon.TOTAL_COUNT
+    
+    np.save('cg_{}'.format(year),year_array)
+
+# I save the files as individual annual files in case I need to access them later, but the above loop can also be rewritten to concatentate the annual files (using np.concatenate) into a single array
+    
+cg_2004 = np.load('cg_2004.npy')
+cg_2005 = np.load('cg_2005.npy')
+cg_2006 = np.load('cg_2006.npy')
+cg_2007 = np.load('cg_2007.npy')
+cg_2008 = np.load('cg_2008.npy')
+cg_2009 = np.load('cg_2009.npy')
+cg_2010 = np.load('cg_2010.npy')
+cg_2011 = np.load('cg_2011.npy')
+cg_2012 = np.load('cg_2012.npy')
+cg_2013 = np.load('cg_2013.npy')
+cg_2014 = np.load('cg_2014.npy')
+cg_2015 = np.load('cg_2015.npy')
+cg_2016 = np.load('cg_2016.npy')
+cg_2017 = np.load('cg_2017.npy')
+cg_2018 = np.load('cg_2018.npy')
+cg_2019 = np.load('cg_2019.npy')
+cg_2020 = np.load('cg_2020.npy')
+
+# combining individual annual arrays into single 3D array (time, lat, lon)
+cg_nldn = np.vstack([cg_2004,cg_2005,cg_2006,cg_2007,cg_2008,cg_2009,
+                     cg_2010,cg_2011,cg_2012,cg_2013,cg_2014,cg_2015,
+                     cg_2016,cg_2017,cg_2018,cg_2019,cg_2020])
+
+np.save('cg_nldn',cg_nldn)
