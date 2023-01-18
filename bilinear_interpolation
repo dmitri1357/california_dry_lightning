@@ -1,1 +1,17 @@
 #!/usr/bin/env python3
+
+gridmet = np.load('pr_2016.npy') # load dataset that you want to regrid 
+# make sure this gridded dataset is ordered west-east and south-north - flip it if ordered north-south
+
+yi = np.arange(29.9,49.42,0.0416667) # original lats before regridding (0.04167 degree resolution in this example)
+xi = np.arange(-124.76667,-103.09,0.0416667) # original lons before regridding (0.04167 degree resolution in this example)
+newlat = np.arange(30.05,49.96,0.1) # new lats of the regridded dataset (0.1 degree resolution in this example)
+newlon = np.arange(-124.95,-103.05,0.1) # new lons of the regridded dataset (0.1 degree resolution in this example)
+
+gridmet_regridded = np.empty([153,200,220]) # days,lat,lon of new (regridded) dataset
+for k in range(153): # loop through 153 days and regrid each day individually, collecting them back into 3D array
+    day = gridmet[k,:,:]
+    regridded = linint2(day, newlon, newlat, xi=xi, yi=yi, icycx=False) # using linint2 function from geocat-examples
+    gridmet_regridded[k,:,:] = regridded
+
+np.save('gridmet_2016_regridded',gridmet_regridded)
